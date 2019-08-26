@@ -35,6 +35,9 @@ class SimpleCollection {
     func get(key: String) -> Data? {
         return self.docs[key]
     }
+    @discardableResult func delete(key: String) -> Data? {
+        return self.docs.removeValue(forKey: key)
+    }
     func each(_ cb: (String, Data) -> Bool) {
         for (key, data) in self.docs {
             let keepGoing = cb(key, data)

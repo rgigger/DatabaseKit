@@ -22,21 +22,30 @@ class BaseIndex {
         return String(data: loaded, encoding: .utf8)
     }
     func set(key: String, value: String) {
+        // it is supposedly safe to do a force unwrap here as long as the encoding is .utf8
         self.collection.set(key: key, data: value.data(using: .utf8)!)
+    }
+    func delete(key: String) {
+        self.collection.delete(key: key)
     }
 }
 
 
 class BaseCollection<T: Codable> {
+    typealias afterSetTrigger = (String, T, T?) -> Void
     var name: String
     var store: SimpleStore
     var collection: SimpleCollection
+    var afterSetTriggers: [afterSetTrigger] = []
     init(_ name: String, store: SimpleStore) {
         self.name = name
         self.store = store
         self.store.createCollection(name)
         self.collection = self.store.getCollection(name)!
     }
+    // fixme: should we make get and set private??? Right now if they get used then no triggers will be fired
+    //        and indexes won't be kept up to date
+    //        we have tests using them that we should probably just nuke
     func get(_ key: String) -> T? {
         var record: T?
         do {
@@ -51,6 +60,16 @@ class BaseCollection<T: Codable> {
             self.collection.set(key: key, data: json)
         } catch { print(error) }
     }
+    // fixme: What does @escaping do? Could this create a memory leak? Why do I need it here?
+    func addAfterSetTrigger(_ trigger: @escaping afterSetTrigger) {
+        self.afterSetTriggers.append(trigger)
+    }
+    private func _set(key: String, value: T, oldValue: T?) {
+        self.set(key: key, value: value)
+        for trigger in self.afterSetTriggers {
+            trigger(key, value, oldValue)
+        }
+    }
     func getKey(forModel model: T) -> String {
         // This is a bad way of doing this. Ideally we would use an abstract method, but Swift doesn't support them.
         // In lieu of that we should probably at least throw here if this gets called
@@ -60,19 +79,19 @@ class BaseCollection<T: Codable> {
         let key = self.getKey(forModel: model)
         let old = self.get(key)
         guard old == nil else { throw DatabaseKitError.keyAlreadyExists(collection: self.name, key: key) }
-        self.set(key: key, value: model)
+        self._set(key: key, value: model, oldValue: nil)
     }
     // needs tests
     func updateOne(_ model: T) throws {
         let key = self.getKey(forModel: model)
-        guard let _ = self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key) }
-        self.set(key: key, value: model)
+        guard let old = self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key) }
+        self._set(key: key, value: model, oldValue: old)
     }
     // needs tests
     func createOrUpdateOne(_ model: T) throws {
         let key = self.getKey(forModel: model)
-        // guard let _ = self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key) }
-        self.set(key: key, value: model)
+        let old = self.get(key)
+        self._set(key: key, value: model, oldValue: old)
     }
     func find(byKey key: String) throws -> T {
         guard let model = self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key)}
