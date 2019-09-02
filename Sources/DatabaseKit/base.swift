@@ -71,7 +71,7 @@ open class BaseCollection<T: Codable> {
             trigger(key, value, oldValue)
         }
     }
-    public func getKey(forModel model: T) -> String {
+    open func getKey(forModel model: T) -> String {
         // This is a bad way of doing this. Ideally we would use an abstract method, but Swift doesn't support them.
         // In lieu of that we should probably at least throw here if this gets called
         return ""
