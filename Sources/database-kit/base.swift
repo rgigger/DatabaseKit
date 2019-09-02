@@ -32,7 +32,7 @@ open class BaseIndex {
 
 
 open class BaseCollection<T: Codable> {
-    typealias afterSetTrigger = (String, T, T?) -> Void
+    public typealias afterSetTrigger = (String, T, T?) -> Void
     var name: String
     var store: SimpleStore
     var collection: SimpleCollection
