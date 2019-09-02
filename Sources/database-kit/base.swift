@@ -11,7 +11,7 @@ open class BaseIndex {
     var name: String
     var store: SimpleStore
     var collection: SimpleCollection
-    init(_ name: String, store: SimpleStore) {
+    public init(_ name: String, store: SimpleStore) {
         self.name = name
         self.store = store
         self.store.createCollection(name)
@@ -37,7 +37,7 @@ open class BaseCollection<T: Codable> {
     var store: SimpleStore
     var collection: SimpleCollection
     var afterSetTriggers: [afterSetTrigger] = []
-    init(_ name: String, store: SimpleStore) {
+    public init(_ name: String, store: SimpleStore) {
         self.name = name
         self.store = store
         self.store.createCollection(name)
