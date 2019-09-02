@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "database-kit",
+    name: "DatabaseKit",
     platforms: [
         .macOS(.v10_12),
         .iOS(.v11),
