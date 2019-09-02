@@ -1,5 +1,5 @@
 import XCTest
-@testable import database_kit
+@testable import DatabaseKit
 
 final class marksTests: XCTestCase {
     
