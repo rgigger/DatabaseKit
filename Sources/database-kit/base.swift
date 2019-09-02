@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class BaseIndex {
+open class BaseIndex {
     var name: String
     var store: SimpleStore
     var collection: SimpleCollection
@@ -31,7 +31,7 @@ public class BaseIndex {
 }
 
 
-public class BaseCollection<T: Codable> {
+open class BaseCollection<T: Codable> {
     typealias afterSetTrigger = (String, T, T?) -> Void
     var name: String
     var store: SimpleStore
