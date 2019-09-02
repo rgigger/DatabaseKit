@@ -76,7 +76,7 @@ open class BaseCollection<T: Codable> {
         // In lieu of that we should probably at least throw here if this gets called
         return ""
     }
-    func create(_ model: T) throws {
+    public func create(_ model: T) throws {
         let key = self.getKey(forModel: model)
         let old = self.get(key)
         guard old == nil else { throw DatabaseKitError.keyAlreadyExists(collection: self.name, key: key) }
