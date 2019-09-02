@@ -61,16 +61,17 @@ open class BaseCollection<T: Codable> {
         } catch { print(error) }
     }
     // fixme: What does @escaping do? Could this create a memory leak? Why do I need it here?
-    func addAfterSetTrigger(_ trigger: @escaping afterSetTrigger) {
+    public func addAfterSetTrigger(_ trigger: @escaping afterSetTrigger) {
         self.afterSetTriggers.append(trigger)
     }
+    // question: does private simple protect this from being used outside this class or just outside the module???
     private func _set(key: String, value: T, oldValue: T?) {
         self.set(key: key, value: value)
         for trigger in self.afterSetTriggers {
             trigger(key, value, oldValue)
         }
     }
-    func getKey(forModel model: T) -> String {
+    public func getKey(forModel model: T) -> String {
         // This is a bad way of doing this. Ideally we would use an abstract method, but Swift doesn't support them.
         // In lieu of that we should probably at least throw here if this gets called
         return ""
