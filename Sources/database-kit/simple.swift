@@ -7,7 +7,7 @@
 
 import Foundation
 
-class SimpleStore {
+public class SimpleStore {
     var collections: [String:SimpleCollection] = [:]
     var collectionNames: [String] {
         get {

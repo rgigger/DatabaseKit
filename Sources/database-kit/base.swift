@@ -7,7 +7,7 @@
 
 import Foundation
 
-class BaseIndex {
+public class BaseIndex {
     var name: String
     var store: SimpleStore
     var collection: SimpleCollection
