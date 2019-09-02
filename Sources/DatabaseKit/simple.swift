@@ -21,6 +21,7 @@ public class SimpleStore {
     func getCollection(_ name: String) -> SimpleCollection? {
         return self.collections[name]
     }
+    public init() {}
 }
 
 class SimpleCollection {
