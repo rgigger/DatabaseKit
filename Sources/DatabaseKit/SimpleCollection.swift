@@ -7,24 +7,15 @@
 
 import Foundation
 
-public class SimpleStore {
-    var collections: [String:SimpleCollection] = [:]
-    var collectionNames: [String] {
-        get {
-            return Array(self.collections.keys)
-        }
-    }
-    func createCollection(_ name: String) {
-        if(self.collections[name] != nil) { return }
-        self.collections[name] = SimpleCollection(name)
-    }
-    func getCollection(_ name: String) -> SimpleCollection? {
-        return self.collections[name]
-    }
-    public init() {}
+public protocol SimpleCollection {
+    // init(_ name: String)
+    func set(key: String, data: Data)
+    func get(key: String) -> Data?
+    @discardableResult func delete(key: String) -> Data?
+    func each(_ cb: (String, Data) -> Bool)
 }
 
-class SimpleCollection {
+class DictCollection: SimpleCollection {
     let name: String
     var docs: [String:Data] = [:]
     init(_ name: String) {
