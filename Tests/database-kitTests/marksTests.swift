@@ -106,7 +106,7 @@ final class marksTests: XCTestCase {
     }
 
     func testCreate() {
-        let store = SimpleStore()
+        let store = MemoryStore()
         let db = AppDatabase(store: store);
         let bookmark = BookMark(
             href: "https://newrepublic.com/article/144739/liberals-get-wrong-identity-politics",

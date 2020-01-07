@@ -46,7 +46,7 @@ final class database_kitTests: XCTestCase {
     
     func testBaseCollectionGetAndSet() {
         
-        let store = SimpleStore()
+        let store = MemoryStore()
         let db = AppDatabase(store: store);
 
         let worldCard = Card(word: "world", priority: 1)
@@ -66,7 +66,7 @@ final class database_kitTests: XCTestCase {
     }
     
     func testCrudMethods() {
-        let store = SimpleStore()
+        let store = MemoryStore()
         let db = AppDatabase(store: store);
 
         let findByIdCard = Card(word: "findById", priority: 1)
