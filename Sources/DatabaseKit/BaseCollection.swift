@@ -13,36 +13,32 @@ open class BaseCollection<T: Codable> {
     var store: SimpleStore
     var collection: SimpleCollection
     var afterSetTriggers: [afterSetTrigger] = []
-    public init(_ name: String, store: SimpleStore) {
+    public init(_ name: String, store: SimpleStore) throws {
         self.name = name
         self.store = store
-        self.store.createCollection(name)
-        self.collection = self.store.getCollection(name)!
+        try self.store.createCollection(name)
+        try self.collection = self.store.getCollection(name)!
     }
     // fixme: should we make get and set private??? Right now if they get used then no triggers will be fired
     //        and indexes won't be kept up to date
     //        we have tests using them that we should probably just nuke
-    func get(_ key: String) -> T? {
+    func get(_ key: String) throws -> T? {
         var record: T?
-        do {
-            guard let loaded = self.collection.get(key: key) else { return nil }
-            record = try JSONDecoder().decode(T.self, from: loaded)
-        } catch { print(error) }
+        guard let loaded = try self.collection.get(key: key) else { return nil }
+        record = try JSONDecoder().decode(T.self, from: loaded)
         return record!
     }
-    func set(key: String, value: T) {
-        do {
-            let json = try JSONEncoder().encode(value)
-            self.collection.set(key: key, data: json)
-        } catch { print(error) }
+    func set(key: String, value: T) throws {
+        let json = try JSONEncoder().encode(value)
+        try self.collection.set(key: key, data: json)
     }
     // fixme: What does @escaping do? Could this create a memory leak? Why do I need it here?
     public func addAfterSetTrigger(_ trigger: @escaping afterSetTrigger) {
         self.afterSetTriggers.append(trigger)
     }
     // question: does private simple protect this from being used outside this class or just outside the module???
-    private func _set(key: String, value: T, oldValue: T?) {
-        self.set(key: key, value: value)
+    private func _set(key: String, value: T, oldValue: T?) throws {
+        try self.set(key: key, value: value)
         for trigger in self.afterSetTriggers {
             trigger(key, value, oldValue)
         }
@@ -54,29 +50,29 @@ open class BaseCollection<T: Codable> {
     }
     public func create(_ model: T) throws {
         let key = self.getKey(forModel: model)
-        let old = self.get(key)
+        let old = try self.get(key)
         guard old == nil else { throw DatabaseKitError.keyAlreadyExists(collection: self.name, key: key) }
-        self._set(key: key, value: model, oldValue: nil)
+        try self._set(key: key, value: model, oldValue: nil)
     }
     // needs tests
     func updateOne(_ model: T) throws {
         let key = self.getKey(forModel: model)
-        guard let old = self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key) }
-        self._set(key: key, value: model, oldValue: old)
+        guard let old = try self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key) }
+        try self._set(key: key, value: model, oldValue: old)
     }
     // needs tests
     func createOrUpdateOne(_ model: T) throws {
         let key = self.getKey(forModel: model)
-        let old = self.get(key)
-        self._set(key: key, value: model, oldValue: old)
+        let old = try self.get(key)
+        try self._set(key: key, value: model, oldValue: old)
     }
     func find(byKey key: String) throws -> T {
-        guard let model = self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key)}
+        guard let model = try self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key)}
         return model;
     }
-    func find(_ filter: (String, T) -> Bool) -> [T] {
+    func find(_ filter: (String, T) -> Bool) throws -> [T] {
         var results: [T] = []
-        self.collection.each { (key, data) in
+        try self.collection.each { (key, data) in
             do {
                 let record = try JSONDecoder().decode(T.self, from: data)
                 if filter(key, record) == true {

@@ -11,21 +11,21 @@ open class BaseIndex {
     var name: String
     var store: SimpleStore
     var collection: SimpleCollection
-    public init(_ name: String, store: SimpleStore) {
+    public init(_ name: String, store: SimpleStore) throws {
         self.name = name
         self.store = store
-        self.store.createCollection(name)
-        self.collection = self.store.getCollection(name)!
+        try self.store.createCollection(name)
+        try self.collection = self.store.getCollection(name)!
     }
-    public func get(_ key: String) -> String? {
-        guard let loaded = self.collection.get(key: key) else { return nil }
+    public func get(_ key: String) throws -> String? {
+        guard let loaded = try self.collection.get(key: key) else { return nil }
         return String(data: loaded, encoding: .utf8)
     }
-    public func set(key: String, value: String) {
+    public func set(key: String, value: String) throws {
         // it is supposedly safe to do a force unwrap here as long as the encoding is .utf8
-        self.collection.set(key: key, data: value.data(using: .utf8)!)
+        try self.collection.set(key: key, data: value.data(using: .utf8)!)
     }
-    public func delete(key: String) {
-        self.collection.delete(key: key)
+    public func delete(key: String) throws {
+        try self.collection.delete(key: key)
     }
 }
