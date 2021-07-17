@@ -7,75 +7,176 @@
 
 import Foundation
 
-open class BaseCollection<T: Codable> {
-    public typealias afterSetTrigger = (String, T, T?) -> Void
-    var name: String
-    var store: SimpleStore
-    var collection: SimpleCollection
-    var afterSetTriggers: [afterSetTrigger] = []
-    public init(_ name: String, store: SimpleStore) throws {
-        self.name = name
-        self.store = store
-        try self.store.createCollection(name)
-        try self.collection = self.store.getCollection(name)!
+// MARK: - the foundational types
+
+/// Some shared types that need to be correlated across many of the below protocols
+public protocol RecordCollectionBaseTypes {
+    associatedtype ModelType
+    associatedtype CollectionType: SimpleCollection
+    typealias afterSetTrigger = (String, ModelType, ModelType?, CollectionType.Transaction?) throws -> Void
+}
+
+/// The basic API for how collections are to be accessed
+public protocol RecordCollection: RecordCollectionBaseTypes {
+    func getKey(forModel model: ModelType) -> String
+    func decode(data: Data) throws -> ModelType
+    func encode(model: ModelType) throws -> Data
+    func get(_ key: String, withTransaction transaction: CollectionType.Transaction?) throws -> ModelType?
+    func set(key: CustomStringConvertible, value: ModelType, withTransaction transaction: CollectionType.Transaction?) throws
+    mutating func addAfterSetTrigger(_ trigger: @escaping afterSetTrigger)
+    func _set(key: String, value: ModelType, oldValue: ModelType?, withTransaction transaction: CollectionType.Transaction?) throws
+    func create(_ model: ModelType, withTransaction transaction: CollectionType.Transaction?) throws
+    func updateOne(_ model: ModelType, withTransaction transaction: CollectionType.Transaction?) throws
+    func createOrUpdateOne(_ model: ModelType, withTransaction transaction: CollectionType.Transaction?) throws
+    func find(byKey key: CustomStringConvertible, withTransaction transaction: CollectionType.Transaction?) throws -> ModelType
+    func find(_ filter: (String, ModelType) -> Bool, withTransaction transaction: CollectionType.Transaction?) throws -> [ModelType]
+}
+
+
+// MARK: - helpers for supplying `getKey:forModel`
+
+public protocol StringIdentifiable {
+    associatedtype ID : CustomStringConvertible
+    var id: Self.ID { get }
+}
+
+
+/// If this collection's model conforms to `Identifiable` and the type of the ID can be converted to a string you can supply `getKey:forModel`
+/// by simply adding extending IdentifiableCollection
+public protocol StringIdentifiableCollection: RecordCollectionBaseTypes {
+    func getKey(forModel model: ModelType) -> String
+}
+public extension StringIdentifiableCollection where ModelType: StringIdentifiable {
+    func getKey(forModel model: ModelType) -> String {
+        return model.id.description
     }
-    // fixme: should we make get and set private??? Right now if they get used then no triggers will be fired
-    //        and indexes won't be kept up to date
-    //        we have tests using them that we should probably just nuke
-    func get(_ key: String) throws -> T? {
-        var record: T?
-        guard let loaded = try self.collection.get(key: key) else { return nil }
-        record = try JSONDecoder().decode(T.self, from: loaded)
-        return record!
+}
+
+
+// MARK: - helpers for supplying `decode:data` and `encode:model`
+
+public protocol DataEncoder {
+    func encode<T>(_ value: T) throws -> Data where T : Encodable
+}
+extension JSONEncoder: DataEncoder {}
+
+public protocol DataDecoder {
+    func decode<T>(_ type: T.Type, from data: Data) throws -> T where T : Decodable
+}
+extension JSONDecoder: DataDecoder {}
+
+/// This simplies the process of supplying a serializer to the collections
+public protocol CodedCollection: RecordCollectionBaseTypes where ModelType: Codable {
+    var encoder: DataEncoder { get }
+    var decoder: DataDecoder { get }
+}
+
+/// By conforming to `CodedCollection` you automatically supply these two methods from `RecordCollection`
+extension CodedCollection {
+    public func decode(data: Data) throws -> ModelType {
+        try decoder.decode(ModelType.self, from: data)
     }
-    func set(key: String, value: T) throws {
-        let json = try JSONEncoder().encode(value)
-        try self.collection.set(key: key, data: json)
+    public func encode(model: ModelType) throws -> Data {
+        try encoder.encode(model)
     }
-    // fixme: What does @escaping do? Could this create a memory leak? Why do I need it here?
-    public func addAfterSetTrigger(_ trigger: @escaping afterSetTrigger) {
+}
+
+/// Create a singleton that allows us to access these on a global basis without having to recreate
+/// them for each object that needs to use them
+class JSONDataCoder {
+    private init() {}
+    public let encoder: DataEncoder = JSONEncoder()
+    public let decoder: DataDecoder = JSONDecoder()
+    static let shared = JSONDataCoder()
+}
+
+/// By conforming to `JSONCodedCollection` you automatically supply the `encoder` and `decoder` properties
+/// that are necessary for `CodedCollection` and get conformance to `CodedCollection` which supplies the
+/// `decode` and `encode` methods that are required by `RecordCollection`
+public protocol JSONCodedCollection: CodedCollection {}
+public extension JSONCodedCollection {
+    var encoder: DataEncoder {
+        return JSONDataCoder.shared.encoder
+    }
+    var decoder: DataDecoder {
+        return JSONDataCoder.shared.decoder
+    }
+}
+
+
+// MARK: - helpers for supplying all of the CRUD methods
+
+/// Some basic properties that, if implemented make it possible to add implementations for many of methods required by `RecordCollection`
+public protocol RecordCollectionDefaultStorage: RecordCollectionBaseTypes {
+    var name: String { get set }
+    var collection: CollectionType { get }
+    var afterSetTriggers: [afterSetTrigger] { get set }
+}
+
+/// If you supply the properties required by `RecordCollectionDefaultStorage` you can supply implementations for all of the CRUD methods
+/// required by `RecordCollection`
+public protocol RecordCollectionDefaultCRUD: RecordCollection, RecordCollectionDefaultStorage {}
+extension RecordCollectionDefaultCRUD {
+    public func get(_ key: String, withTransaction transaction: CollectionType.Transaction?) throws -> ModelType? {
+        guard let loaded = try self.collection.get(key: key, withTransaction: transaction) else { return nil }
+        return try decode(data: loaded)
+    }
+    
+    public func set(key: CustomStringConvertible, value: ModelType, withTransaction transaction: CollectionType.Transaction?) throws {
+        let json = try encode(model: value)
+        try self.collection.set(key: key.description, data: json, withTransaction: transaction)
+    }
+    
+    public mutating func addAfterSetTrigger(_ trigger: @escaping afterSetTrigger) {
         self.afterSetTriggers.append(trigger)
     }
-    // question: does private simple protect this from being used outside this class or just outside the module???
-    private func _set(key: String, value: T, oldValue: T?) throws {
-        try self.set(key: key, value: value)
+    
+    public func _set(key: String, value: ModelType, oldValue: ModelType?, withTransaction transaction: CollectionType.Transaction?) throws {
+        try self.set(key: key, value: value, withTransaction: transaction)
         for trigger in self.afterSetTriggers {
-            trigger(key, value, oldValue)
+            try trigger(key, value, oldValue, transaction)
         }
     }
-    open func getKey(forModel model: T) -> String {
-        // This is a bad way of doing this. Ideally we would use an abstract method, but Swift doesn't support them.
-        // In lieu of that we should probably at least throw here if this gets called
-        return ""
-    }
-    public func create(_ model: T) throws {
+    
+    public func create(_ model: ModelType, withTransaction transaction: CollectionType.Transaction?) throws {
         let key = self.getKey(forModel: model)
-        let old = try self.get(key)
+        let old = try self.get(key, withTransaction: transaction)
         guard old == nil else { throw DatabaseKitError.keyAlreadyExists(collection: self.name, key: key) }
-        try self._set(key: key, value: model, oldValue: nil)
+        try self._set(key: key, value: model, oldValue: nil, withTransaction: transaction)
     }
-    // needs tests
-    func updateOne(_ model: T) throws {
+    
+    public func updateOne(_ model: ModelType, withTransaction transaction: CollectionType.Transaction?) throws {
         let key = self.getKey(forModel: model)
-        guard let old = try self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key) }
-        try self._set(key: key, value: model, oldValue: old)
+        guard let old = try self.get(key, withTransaction: transaction) else {
+            throw DatabaseKitError.keyNotFound(collection: self.name, key: key)
+        }
+        try self._set(key: key, value: model, oldValue: old, withTransaction: transaction)
     }
-    // needs tests
-    func createOrUpdateOne(_ model: T) throws {
+    
+    public func createOrUpdateOne(_ model: ModelType, withTransaction transaction: CollectionType.Transaction?) throws {
         let key = self.getKey(forModel: model)
-        let old = try self.get(key)
-        try self._set(key: key, value: model, oldValue: old)
+        let old = try self.get(key, withTransaction: transaction)
+        try self._set(key: key, value: model, oldValue: old, withTransaction: transaction)
     }
-    func find(byKey key: String) throws -> T {
-        guard let model = try self.get(key) else { throw DatabaseKitError.keyNotFound(collection: self.name, key: key)}
+    
+    public func find(byKey key: CustomStringConvertible, withTransaction transaction: CollectionType.Transaction?) throws -> ModelType {
+        let stringKey: String = key.description
+        guard let model = try self.get(stringKey, withTransaction: transaction) else {
+            throw DatabaseKitError.keyNotFound(collection: self.name, key: stringKey)
+        }
         return model;
     }
-    func find(_ filter: (String, T) -> Bool) throws -> [T] {
-        var results: [T] = []
-        try self.collection.each { (key, data) in
+    
+    public func find(_ filter: (String, ModelType) -> Bool) throws -> [ModelType] {
+        return try self.find(filter, withTransaction: nil)
+    }
+    
+    public func find(_ filter: (String, ModelType) -> Bool, withTransaction transaction: CollectionType.Transaction?) throws -> [ModelType] {
+        var results: [ModelType] = []
+        try self.collection.each(withTransaction: transaction) { (key, data) in
             do {
-                let record = try JSONDecoder().decode(T.self, from: data)
-                if filter(key, record) == true {
+                let record = try decode(data: data)
+                if filter(key, record) {
                     results.append(record)
                 }
             } catch {
@@ -84,5 +185,31 @@ open class BaseCollection<T: Codable> {
             return true
         }
         return results
+    }
+
+    public func empty() throws {
+        try collection.empty()
+    }
+
+}
+
+
+// MARK: - Base class for pulling together a solid default configuration for a collection
+
+/// BaseCollection sets up all of the types, provides the storage properties necessary for conformance with `RecordCollectionDefaultStorage`
+/// and initializes them.
+open class BaseCollection<T, SS: SimpleStore>: RecordCollectionDefaultStorage {
+    public typealias ModelType = T
+    public typealias CollectionType = SS.Collection
+    public var name: String
+    var store: SS
+    public var collection: SS.Collection
+    public var afterSetTriggers: [afterSetTrigger] = []
+    
+    public init(_ name: String, store: SS) throws {
+        self.name = name
+        self.store = store
+        try self.store.createCollection(name)
+        self.collection = try self.store.getCollection(name)!
     }
 }
