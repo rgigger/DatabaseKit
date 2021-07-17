@@ -9,7 +9,7 @@ import Foundation
 import SwiftLMDB
 
 public class MemoryStore: BaseStore {
-    override public func newCollection(name: String) -> SimpleCollection {
-        return DictCollection(name)
-    }
+   override public func newCollection(name: String) -> SimpleCollection {
+       return DictCollection(name)
+   }
 }
