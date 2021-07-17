@@ -8,6 +8,7 @@
 import Foundation
 
 public protocol SimpleStore {
+    associatedtype Collection: SimpleCollection
     func createCollection(_ name: String) throws
-    func getCollection(_ name: String) throws -> SimpleCollection?
+    func getCollection(_ name: String) throws -> Collection?
 }

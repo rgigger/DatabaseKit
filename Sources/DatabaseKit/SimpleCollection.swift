@@ -8,8 +8,10 @@
 import Foundation
 
 public protocol SimpleCollection {
-    func set(key: String, data: Data) throws
-    func get(key: String) throws -> Data?
-    func delete(key: String) throws
-    func each(_ cb: (String, Data) -> Bool) throws
+    associatedtype Transaction: SimpleTransaction
+    func set(key: String, data: Data, withTransaction transaction: Transaction?) throws
+    func get(key: String, withTransaction transaction: Transaction?) throws -> Data?
+    func delete(key: String, withTransaction transaction: Transaction?) throws
+    func each(withTransaction optionalSwiftLMDBTransaction: Transaction?, _ cb: (String, Data) -> Bool) throws
+    func empty() throws
 }
