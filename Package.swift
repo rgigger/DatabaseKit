@@ -24,9 +24,12 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "DatabaseKit",
-            dependencies: ["SwiftLMDB"]),
+            dependencies: ["SwiftLMDB"]
+        ),
         .testTarget(
             name: "database-kitTests",
-            dependencies: ["DatabaseKit"]),
+            dependencies: ["DatabaseKit"],
+            resources: [.process("Resources/test.jpg")]
+        ),
     ]
 )
