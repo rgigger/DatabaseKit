@@ -2,7 +2,7 @@ import XCTest
 @testable import DatabaseKit
 
 final class marksTests: XCTestCase {
-    
+
     struct BookMark: Codable {
         let href: String
         let description: String
@@ -21,7 +21,7 @@ final class marksTests: XCTestCase {
             // of this as possible into BaseCollection
             self.addAfterSetTrigger { (key, new, old) in
                 debugPrint(key, new, old as Any)
-                
+
                 //
                 // This entire section will create race conditions in a multi-threaded environment. There will be a
                 // brief period where the record has changed but the indexes aren't updated yet. There are any number
@@ -36,7 +36,7 @@ final class marksTests: XCTestCase {
                 //    (create, UpdateOne, createOrUpdateOne) and then the transaction should be passed down through each level
                 //    from there to here.
                 //
-                
+
                 //
                 // This is also really the logic for a unique index. Most indexes, and specifically
                 // one on this field will need to be able to store multiple values for the same key.
@@ -75,16 +75,16 @@ final class marksTests: XCTestCase {
                 //      - adds an afterSet trigger that will call updateIndex
                 // 7. Create subclasses of BaseIndex and BaseUniqueIndex that take a keyPath for the model
                 //    in the initilazer and use that to implement getIndexKey
-                
+
                 // if the indexed value hasn't changed, do nothing
                 if new.updated == old?.updated { return }
-                
+
                 // if there was an old value (which we now know has changed in the new record)
                 // then we need to delete the old references to it
                 if let oldUpdated = old?.updated {
                     self.updatedIndex.delete(key: formatter.string(from: oldUpdated))
                 }
-                
+
                 // map the updated date to the primary key
                 // fixme: this will need to be updated for non-unique indexes
                 //        we should probably have BaseIndex (uses a b-tree) and BaseUniquIndex (uses a Map)
@@ -145,7 +145,7 @@ final class marksTests: XCTestCase {
 //
 //        // fixme: add test cases for update and createOrUpdateOne
 //    }
-    
+
     func testTests() {
         XCTAssertTrue(true)
     }
