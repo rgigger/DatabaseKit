@@ -46,6 +46,7 @@ public class LOFileCollection: LargeObjectCollection {
         case unableToCreateFileStream
         case unableToCreateEncryptionStream
         case unableToCreateDecryptionContext
+        case dataIsNotEncrypted
     }
     
     init(name: String, directory: URL, encryptionKey: SymmetricKey?) throws {
@@ -68,14 +69,17 @@ public class LOFileCollection: LargeObjectCollection {
         let encryptedData = try encrypt(data: sourceFileData, withKey: encryptionKey)
         try encryptedData.write(to: destination)
     }
-    
-    private func copyDecrypted(source: URL, destination: URL) throws {
-        guard let encryptionKey = encryptionKey else {
-            return
-        }
 
+    private func loadDecrypted(source: URL) throws -> Data {
+        guard let encryptionKey = encryptionKey else {
+            throw Error.dataIsNotEncrypted
+        }
         let sourceFileData = try Data(contentsOf: source)
-        let decryptedData = try decrypt(data: sourceFileData, withKey: encryptionKey)
+        return try decrypt(data: sourceFileData, withKey: encryptionKey)
+    }
+
+    private func copyDecrypted(source: URL, destination: URL) throws {
+        let decryptedData = try loadDecrypted(source: source)
         try decryptedData.write(to: destination)
     }
     
@@ -99,6 +103,14 @@ public class LOFileCollection: LargeObjectCollection {
             
         } else {
             try FileManager.default.copyItem(at: existingFileLocation, to: destination)
+        }
+    }
+    public func download(key: String, withTransaction transaction: Transaction?) throws -> Data {
+        let existingFileLocation = directory.appendingPathComponent(key)
+        if encryptionKey != nil {
+            return try loadDecrypted(source: existingFileLocation)
+        } else {
+            return try Data(contentsOf: existingFileLocation)
         }
     }
     public func delete(key: String, withTransaction transaction: Transaction?) throws {
