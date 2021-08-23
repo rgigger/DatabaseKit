@@ -47,6 +47,7 @@ public class LOFileCollection: LargeObjectCollection {
         case unableToCreateEncryptionStream
         case unableToCreateDecryptionContext
         case dataIsNotEncrypted
+        case encryptionIsNotConfigured
     }
     
     init(name: String, directory: URL, encryptionKey: SymmetricKey?) throws {
@@ -61,13 +62,17 @@ public class LOFileCollection: LargeObjectCollection {
     }
     
     private func copyEncrypted(source: URL, destination: URL) throws {
+        let sourceFileData = try Data(contentsOf: source)
+        try copyEncrypted(source: sourceFileData, destination: destination)
+    }
+    
+    private func copyEncrypted(source: Data, destination: URL) throws {
         guard let encryptionKey = encryptionKey else {
-            return
+            throw Error.encryptionIsNotConfigured
         }
 
-        let sourceFileData = try Data(contentsOf: source)
-        let encryptedData = try encrypt(data: sourceFileData, withKey: encryptionKey)
-        try encryptedData.write(to: destination)
+        let encryptedData = try encrypt(data: source, withKey: encryptionKey)
+        try encryptedData.write(to: destination, options: [.atomicWrite, .completeFileProtection])
     }
 
     private func loadDecrypted(source: URL) throws -> Data {
@@ -81,6 +86,15 @@ public class LOFileCollection: LargeObjectCollection {
     private func copyDecrypted(source: URL, destination: URL) throws {
         let decryptedData = try loadDecrypted(source: source)
         try decryptedData.write(to: destination)
+    }
+    
+    public func upload(key: String, fromSource source: Data, withTransaction transaction: Transaction?) throws {
+        let newFileLocation = directory.appendingPathComponent(key)
+        if encryptionKey != nil {
+            try copyEncrypted(source: source, destination: newFileLocation)
+        } else {
+            try source.write(to: newFileLocation)
+        }
     }
     
     public func upload(key: String, fromSource source: URL, withTransaction transaction: Transaction?) throws {
