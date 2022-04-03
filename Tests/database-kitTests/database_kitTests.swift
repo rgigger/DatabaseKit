@@ -143,6 +143,23 @@ final class database_kitTests: XCTestCase {
         // fixme: add test cases for update and createOrUpdateOne
     }
 
+    func testCollectionSequences() throws {
+        let dirs = try setupDirectories()
+        let db = try getDb(storeDir: dirs.storeDir, loStoreDir: dirs.loStoreDir)
+
+        for i in 1 ... 10 {
+            // print(i)
+            try db.cards.set(key: String(i), value: Card(word: String(i), priority: 1, imageName: nil), withTransaction: nil)
+        }
+
+        let cardSequence = try db.cards.each(withTransaction: nil)
+        let mostCards = cardSequence.filter { (key: String, value: Card) in
+            return key != "7"
+        }
+        XCTAssertEqual(mostCards.count, 9)
+    }
+
+
     func getDb(storeDir: URL, loStoreDir: URL) throws -> AppDatabase {
         let store = try LmdbStore(path: storeDir.path)
         let loStore = try LOFileStore(path: loStoreDir.path, password: encryptionPassword)
@@ -161,7 +178,7 @@ final class database_kitTests: XCTestCase {
         //try FileManager.default.createDirectory(atPath: storeURL.absoluteString, withIntermediateDirectories: true, attributes: nil)
         try FileManager.default.createDirectory(at: storeURL, withIntermediateDirectories: true, attributes: nil)
         try FileManager.default.createDirectory(at: loStoreURL, withIntermediateDirectories: true, attributes: nil)
-        
+
         let dirs = (baseDir: envURL, storeDir: storeURL, loStoreDir: loStoreURL)
         print(dirs)
         return dirs

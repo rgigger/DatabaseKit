@@ -9,6 +9,7 @@ import Foundation
 import SwiftLMDB
 
 public class LmdbCollection: SimpleCollection {
+
     public typealias Transaction = LmdbTransaction
     let name: String
     let environment: Environment
@@ -40,7 +41,16 @@ public class LmdbCollection: SimpleCollection {
         }
 
     }
-    
+
+    public func each(withTransaction optionalLmdbTransaction: LmdbTransaction?) throws -> AnySequence<(key: Data, value: Data)> {
+        if let transaction = optionalLmdbTransaction?.transaction {
+            return AnySequence(try database.cursor(withTransaction: transaction))
+        } else {
+            return AnySequence(database.makeIterator())
+        }
+    }
+
+    @available(*, deprecated, message: "Use each(:withTransaction) instead (no callback)")
     public func each(withTransaction optionalLmdbTransaction: Transaction?, _ cb: (String, Data) -> Bool) throws {
         
         func readEach(_ swiftLMDBTransaction: SwiftLMDBTransaction, _ callback: (String, Data) -> Bool) throws {

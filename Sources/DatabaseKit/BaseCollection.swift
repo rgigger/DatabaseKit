@@ -30,6 +30,7 @@ public protocol RecordCollection: RecordCollectionBaseTypes {
     func createOrUpdateOne(_ model: ModelType, withTransaction transaction: CollectionType.Transaction?) throws
     func find(byKey key: CustomStringConvertible, withTransaction transaction: CollectionType.Transaction?) throws -> ModelType
     func find(_ filter: (String, ModelType) -> Bool, withTransaction transaction: CollectionType.Transaction?) throws -> [ModelType]
+    func each(withTransaction transaction: CollectionType.Transaction?) throws -> AnySequence<(key: String, value: ModelType)>
 }
 
 
@@ -187,11 +188,42 @@ extension RecordCollectionDefaultCRUD {
         return results
     }
 
+    func each(withTransaction transaction: CollectionType.Transaction?) throws -> AnySequence<(key: String, value: ModelType)> {
+        typealias InElement = (key: Data, value: Data)
+        typealias OutElement = (key: String, value: ModelType)
+
+        let dataIterator = try self.collection.each(withTransaction: transaction).makeIterator()
+        let collectionIterator = TransformIterator(dataIterator: dataIterator) { (element: InElement) -> OutElement in
+            return (key: String(data: element.key)!, value: try! decode(data: element.value))
+        }
+        return AnySequence(collectionIterator)
+    }
+
     public func empty() throws {
         try collection.empty()
     }
-
 }
+
+public class TransformIterator<InElement, OutElement>: Sequence, IteratorProtocol {
+    public typealias Element = OutElement
+
+    let dataIterator: AnyIterator<InElement>
+    let transform: (InElement) -> OutElement
+
+    init(dataIterator: AnyIterator<InElement>, _ decode: @escaping (InElement) -> OutElement) {
+        self.dataIterator = dataIterator
+        self.transform = decode
+    }
+
+    public func next() -> Element? {
+        guard let element = dataIterator.next() else {
+            return nil
+        }
+
+        return transform(element)
+    }
+}
+
 
 
 // MARK: - Base class for pulling together a solid default configuration for a collection
