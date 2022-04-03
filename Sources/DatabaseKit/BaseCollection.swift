@@ -31,6 +31,7 @@ public protocol RecordCollection: RecordCollectionBaseTypes {
     func find(byKey key: CustomStringConvertible, withTransaction transaction: CollectionType.Transaction?) throws -> ModelType
     func find(_ filter: (String, ModelType) -> Bool, withTransaction transaction: CollectionType.Transaction?) throws -> [ModelType]
     func each(withTransaction transaction: CollectionType.Transaction?) throws -> AnySequence<(key: String, value: ModelType)>
+    func eachDocument(withTransaction transaction: CollectionType.Transaction?) throws -> AnySequence<ModelType>
 }
 
 
@@ -195,6 +196,17 @@ extension RecordCollectionDefaultCRUD {
         let dataIterator = try self.collection.each(withTransaction: transaction).makeIterator()
         let collectionIterator = TransformIterator(dataIterator: dataIterator) { (element: InElement) -> OutElement in
             return (key: String(data: element.key)!, value: try! decode(data: element.value))
+        }
+        return AnySequence(collectionIterator)
+    }
+
+    public func eachDocument(withTransaction transaction: CollectionType.Transaction?) throws -> AnySequence<ModelType> {
+        typealias InElement = (key: Data, value: Data)
+        typealias OutElement = ModelType
+
+        let dataIterator = try self.collection.each(withTransaction: transaction).makeIterator()
+        let collectionIterator = TransformIterator(dataIterator: dataIterator) { (element: InElement) -> OutElement in
+            return try! decode(data: element.value)
         }
         return AnySequence(collectionIterator)
     }
