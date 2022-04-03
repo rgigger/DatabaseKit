@@ -188,7 +188,7 @@ extension RecordCollectionDefaultCRUD {
         return results
     }
 
-    func each(withTransaction transaction: CollectionType.Transaction?) throws -> AnySequence<(key: String, value: ModelType)> {
+    public func each(withTransaction transaction: CollectionType.Transaction?) throws -> AnySequence<(key: String, value: ModelType)> {
         typealias InElement = (key: Data, value: Data)
         typealias OutElement = (key: String, value: ModelType)
 
