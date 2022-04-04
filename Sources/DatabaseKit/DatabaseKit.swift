@@ -8,7 +8,8 @@
 
 import Foundation
 
-enum DatabaseKitError: Error, Equatable {
+public enum DatabaseKitError: Error, Equatable {
     case keyNotFound(collection: String, key: String)
     case keyAlreadyExists(collection: String, key: String)
+    case shouldNeverHappen
 }

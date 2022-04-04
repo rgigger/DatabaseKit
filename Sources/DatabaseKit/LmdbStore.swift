@@ -16,12 +16,24 @@ public class LmdbStore: SimpleStoreBase<LmdbCollection> {
     override public func newCollection(name: String) throws -> LmdbCollection {
         return try LmdbCollection(name: name, environment: environment)
     }
-    public func read(transactionBlock: (LmdbTransaction) -> LmdbTransaction.Action) throws {
+
+    override public func read<R>(_ transactionBlock: (LmdbTransaction) throws -> R) throws -> R {
+        var result: R? = nil
         try environment.read(transactionBlock: { (swiftLMDBTransaction) throws -> Transaction.Action in
             let lmdbTransaction = try LmdbTransaction(swiftLMDBTransaction)
-            let result = transactionBlock(lmdbTransaction)
-            return result.mapped
+            do {
+                result = try transactionBlock(lmdbTransaction)
+                return .commit
+            } catch {
+                return .abort
+            }
         })
+
+        guard let result = result else {
+            throw DatabaseKitError.shouldNeverHappen
+        }
+
+        return result
     }
         
     public func write(transactionBlock: (LmdbTransaction) -> LmdbTransaction.Action) throws {

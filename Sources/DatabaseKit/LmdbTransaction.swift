@@ -11,7 +11,7 @@ import SwiftLMDB
 // Once this is in it's own module maybe it should just be (Donegal.)Transaction
 public class LmdbTransaction: SimpleTransaction {
     // this needs to be part of the protocol somehow, maybe?
-    public enum Action {
+    public enum Action: SimpleTransactionAction {
         case abort, commit
         internal var mapped: Transaction.Action {
             switch self {

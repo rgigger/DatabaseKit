@@ -8,6 +8,7 @@
 import Foundation
 
 public class SimpleStoreBase<Collection: SimpleCollection>: SimpleStore {
+
     var collections: [String:Collection] = [:]
     var collectionNames: [String] {
         get {
@@ -24,6 +25,10 @@ public class SimpleStoreBase<Collection: SimpleCollection>: SimpleStore {
     }
     public func getCollection(_ name: String) -> Collection? {
         self.collections[name]
+    }
+
+    public func read<R>(_ transactionBlock: (Collection.Transaction) throws -> R) throws -> R {
+        preconditionFailure("This method must be overridden")
     }
 }
 

@@ -53,7 +53,7 @@ final class database_kitTests: XCTestCase {
     }
 
     class AppDatabase {
-        private var store: LmdbStore
+        public var store: LmdbStore
         private var loStore: LOFileStore
         var cards: CardCollection
         var words: WordCollection
@@ -149,14 +149,45 @@ final class database_kitTests: XCTestCase {
 
         for i in 1 ... 10 {
             // print(i)
-            try db.cards.set(key: String(i), value: Card(word: String(i), priority: 1, imageName: nil), withTransaction: nil)
+            try db.cards.create(Card(word: String(i), priority: 1, imageName: nil), withTransaction: nil)
         }
 
-        let cardSequence = try db.cards.each(withTransaction: nil)
-        let mostCards = cardSequence.filter { (key: String, value: Card) in
-            return key != "7"
+
+        let theMeaningOfLife = try db.cards.read { transaction -> Int in
+            let cardTupleSequence = try db.cards.each(withTransaction: transaction)
+            let mostCardTuples = cardTupleSequence.filter { (key: String, value: Card) in
+                return key != "7"
+            }
+            XCTAssertEqual(mostCardTuples.count, 9)
+
+            let cardSequence = try db.cards.eachDocument(withTransaction: transaction)
+            let mostCards = cardSequence.filter { card in
+                return card.id != "4"
+            }
+            XCTAssertEqual(mostCards.count, 9)
+
+            return 42
         }
-        XCTAssertEqual(mostCards.count, 9)
+
+        XCTAssertEqual(theMeaningOfLife, 42)
+
+        let theOtherMeaningOfLife = try db.store.read { transaction -> Int in
+            let cardTupleSequence = try db.cards.each(withTransaction: transaction)
+            let mostCardTuples = cardTupleSequence.filter { (key: String, value: Card) in
+                return key != "7"
+            }
+            XCTAssertEqual(mostCardTuples.count, 9)
+
+            let cardSequence = try db.cards.eachDocument(withTransaction: transaction)
+            let mostCards = cardSequence.filter { card in
+                return card.id != "4"
+            }
+            XCTAssertEqual(mostCards.count, 9)
+
+            return 42
+        }
+
+        XCTAssertEqual(theOtherMeaningOfLife, 42)
     }
 
 

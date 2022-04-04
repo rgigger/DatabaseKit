@@ -7,4 +7,10 @@
 
 import Foundation
 
-public protocol SimpleTransaction {}
+public protocol SimpleTransaction {
+    associatedtype Action: SimpleTransactionAction
+}
+
+public protocol SimpleTransactionAction {}
+
+
