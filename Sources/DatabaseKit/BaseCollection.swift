@@ -257,7 +257,7 @@ open class BaseCollection<T, SS: SimpleStore>: RecordCollectionDefaultStorage {
         self.collection = try self.store.getCollection(name)!
     }
 
-    func read<R>(_ transactionBlock: (CollectionType.Transaction) throws -> R) throws -> R {
+    public func read<R>(_ transactionBlock: (CollectionType.Transaction) throws -> R) throws -> R {
         return try store.read(transactionBlock)
     }
 
