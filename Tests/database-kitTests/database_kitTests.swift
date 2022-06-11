@@ -1,5 +1,8 @@
 import XCTest
 import CryptoKit
+// TODO: figure out a way to separate this all out into things that need @testable
+//       and things that don't. That way we can catch stuff that throws us off
+//       when we import normally into a project
 @testable import DatabaseKit
 
 public protocol DBBaseModel: StringIdentifiable, Codable {}
@@ -52,19 +55,42 @@ final class database_kitTests: XCTestCase {
         // }
     }
 
-    class AppDatabase {
-        public var store: LmdbStore
+    struct User : DBBaseModel {
+        var id: String
+        let name: String
+        let age: Int
+        var friends: [String] = []
+        
+        init(name: String, age: Int) {
+            self.id = UUID().uuidString
+            self.name = name
+            self.age = age
+        }
+    }
+
+    class UserCollection: DBBaseCollection<User> {
+        init(store: LmdbStore) throws {
+            try super.init("users", store: store)
+        }
+    }
+
+    class AppDatabase: BaseDatabase<LmdbStore> {
+        // public let store: LmdbStore
         private var loStore: LOFileStore
         var cards: CardCollection
         var words: WordCollection
+        var users: UserCollection
         var files: LOFileCollection
         init(store: LmdbStore, loStore: LOFileStore) throws {
-            self.store = store
+            //self.store = store
             self.loStore = loStore
             self.cards = try CardCollection(store: store)
             self.words = try WordCollection(store: store)
+            self.users = try UserCollection(store: store)
             self.files = try loStore.newCollection(name: "files")
-            
+
+            super.init(store: store)
+
             self.cards.addAfterSetTrigger { (key: String, value: Card, oldValue: Card?, transaction: LmdbTransaction?) in
                 try self.words.createOrUpdateOne(Word(word: value.word, updated: Date()), withTransaction: transaction)
             }
@@ -141,6 +167,42 @@ final class database_kitTests: XCTestCase {
         }
 
         // fixme: add test cases for update and createOrUpdateOne
+        
+        let users = [User(name: "Jane Doe", age: 40), User(name: "Jane Doe", age: 40)]
+        let userIds = users.map { $0.id }
+        
+        // create, validate, and save a user
+        do {
+            var user = User(name: "John Doe", age: 42)
+            user.friends = userIds
+            try db.users.create(user, withTransaction: nil)
+        } catch {
+            // ...
+        }
+        
+        // fetch examples
+        let allUsers = try db.users.eachDocument(withTransaction: nil)
+        let user = try db.users.find(byKey: "<some key>", withTransaction: nil)
+        let tenJohns = try db.users.find({ (key, user) in
+            return user.name.contains("John")
+        }).prefix(10)
+        
+        print(allUsers, user, tenJohns)
+        
+        class ActiveRecord<ModelType: DBBaseModel> {
+            static private var collection: DBBaseCollection<ModelType>? {
+                return nil
+            }
+            
+            init() {
+                
+            }
+        }
+        
+        class UserRecord: ActiveRecord<User> {
+            static public var collection: DBBaseCollection<User>? = nil
+        }
+        UserRecord.collection = db.users
     }
 
     func testCollectionSequences() throws {
@@ -153,7 +215,7 @@ final class database_kitTests: XCTestCase {
         }
 
 
-        let theMeaningOfLife = try db.cards.read { transaction -> Int in
+        let theMeaningOfLife = try db.read { transaction -> Int in
             let cardTupleSequence = try db.cards.each(withTransaction: transaction)
             let mostCardTuples = cardTupleSequence.filter { (key: String, value: Card) in
                 return key != "7"

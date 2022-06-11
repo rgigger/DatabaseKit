@@ -246,7 +246,7 @@ open class BaseCollection<T, SS: SimpleStore>: RecordCollectionDefaultStorage {
     public typealias ModelType = T
     public typealias CollectionType = SS.Collection
     public var name: String
-    var store: SS
+    let store: SS
     public var collection: SS.Collection
     public var afterSetTriggers: [afterSetTrigger] = []
     
@@ -257,8 +257,30 @@ open class BaseCollection<T, SS: SimpleStore>: RecordCollectionDefaultStorage {
         self.collection = try self.store.getCollection(name)!
     }
 
+    // TODO: ideally this would be on RecordCollectionDefaultCRUD
+    //       in order to do that though we need to get the store onto the protocols and
+    //       I just don't have it any me to do that right now
     public func read<R>(_ transactionBlock: (CollectionType.Transaction) throws -> R) throws -> R {
         return try store.read(transactionBlock)
     }
 
+    public func write<R>(_ transactionBlock: (CollectionType.Transaction) throws -> R) throws -> R {
+        return try store.write(transactionBlock)
+    }
+}
+
+open class BaseDatabase<SS: SimpleStore> {
+    public let store: SS
+
+    public init(store: SS) {
+        self.store = store
+    }
+
+    public func read<R>(_ transactionBlock: (SS.Collection.Transaction) throws -> R) throws -> R {
+        return try store.read(transactionBlock)
+    }
+
+    public func write<R>(_ transactionBlock: (SS.Collection.Transaction) throws -> R) throws -> R {
+        return try store.write(transactionBlock)
+    }
 }
